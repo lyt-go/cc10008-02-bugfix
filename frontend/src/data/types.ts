@@ -27,6 +27,27 @@ export type PageResult = {
   size: number
 }
 
+/** 下线结论记录：同一事件同一时间只允许一条「生效中」的下线结论落库。 */
+export type OfflineConclusion = {
+  eventNo: string
+  eventId: number
+  source: string
+  at: string
+  state: '生效中' | '已关闭'
+  closedAt?: string
+}
+
+/** 失效差异清单条目：事件下线导致参数转只读的历史差异，追加保留、不覆盖。 */
+export type ContractDiffEntry = {
+  eventNo: string
+  paramNo: string
+  paramId: number
+  fromStatus: string
+  toStatus: string
+  reason: string
+  at: string
+}
+
 export type ActionResult = {
   ok: boolean
   message: string

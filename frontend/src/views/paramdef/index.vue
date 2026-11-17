@@ -7,6 +7,7 @@
       </div>
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记参数定义</button>
+        <button class="btn" type="button" @click="repairContracts">重取发布版契约</button>
         <button class="btn" type="button" @click="exportRows">导出参数字典清单</button>
       </div>
     </header>
@@ -64,7 +65,8 @@
     </table>
 
     <footer class="page-foot">
-      <span>共 {{ total }} 条参数字典记录</span>
+      <span>共 {{ total }} 条参数字典记录 · 失效差异清单 {{ diffCount }} 条</span>
+      <span v-if="infoMessage" class="info-text">{{ infoMessage }}</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
@@ -75,8 +77,10 @@ import { computed, onMounted, ref } from 'vue'
 
 import {
   downloadEntries,
+  listContractDiffs,
   listEntries,
   moduleMeta,
+  repairParamContracts,
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
@@ -90,6 +94,8 @@ const stats = [{"label": "参数定义总数", "value": 0}, {"label": "已发布
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const infoMessage = ref('')
+const diffCount = ref(0)
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 const statusSummary = computed(() =>
@@ -114,6 +120,7 @@ function openCreate() {
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
+  infoMessage.value = ''
   const result = applyAction(meta.key, Number(row.id), action)
   if (!result.ok) {
     errorMessage.value = result.message
@@ -122,12 +129,25 @@ function runAction(action: string, row: EntryRow) {
   reload()
 }
 
+function repairContracts() {
+  errorMessage.value = ''
+  infoMessage.value = ''
+  try {
+    const result = repairParamContracts()
+    infoMessage.value = result.message
+    reload()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '发布版事件参数契约修复失败'
+  }
+}
+
 function reload() {
   errorMessage.value = ''
   try {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    diffCount.value = listContractDiffs().length
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '参数字典列表读取失败'
   }

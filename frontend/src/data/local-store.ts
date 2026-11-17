@@ -1,8 +1,11 @@
 import { SEED_ROWS } from './seed'
-import type { EntryRow } from './types'
+import type { ContractDiffEntry, EntryRow, OfflineConclusion } from './types'
 
 // 本地持久化：数据放在 localStorage 里，刷新、关掉再打开都还在。
 const STORAGE_KEY = 'behavior-event-trace-hub:entries'
+// 发布链路的两份台账：下线结论（下线记录）与失效差异清单，追加保留历史。
+const OFFLINE_CONCLUSIONS_KEY = 'behavior-event-trace-hub:offline-conclusions'
+const CONTRACT_DIFFS_KEY = 'behavior-event-trace-hub:param-contract-diffs'
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -56,4 +59,58 @@ export function resetRows(key: string): EntryRow[] {
 
 export function storageKey(): string {
   return STORAGE_KEY
+}
+
+function readJsonList<T>(key: string): T[] {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return []
+  }
+  const raw = window.localStorage.getItem(key)
+  if (!raw) {
+    return []
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as T[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeJsonList<T>(key: string, value: T[]): void {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return
+  }
+  window.localStorage.setItem(key, JSON.stringify(value))
+}
+
+let offlineConclusionsCache: OfflineConclusion[] | null = null
+let contractDiffsCache: ContractDiffEntry[] | null = null
+
+export function listOfflineConclusions(): OfflineConclusion[] {
+  if (offlineConclusionsCache === null) {
+    offlineConclusionsCache = readJsonList<OfflineConclusion>(OFFLINE_CONCLUSIONS_KEY)
+  }
+  return offlineConclusionsCache
+}
+
+export function saveOfflineConclusions(rows: OfflineConclusion[]): void {
+  offlineConclusionsCache = rows
+  writeJsonList(OFFLINE_CONCLUSIONS_KEY, rows)
+}
+
+export function listContractDiffs(): ContractDiffEntry[] {
+  if (contractDiffsCache === null) {
+    contractDiffsCache = readJsonList<ContractDiffEntry>(CONTRACT_DIFFS_KEY)
+  }
+  return contractDiffsCache
+}
+
+export function appendContractDiffs(entries: ContractDiffEntry[]): void {
+  if (entries.length === 0) {
+    return
+  }
+  const next = [...listContractDiffs(), ...entries]
+  contractDiffsCache = next
+  writeJsonList(CONTRACT_DIFFS_KEY, next)
 }
